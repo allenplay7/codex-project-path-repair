@@ -34,7 +34,25 @@ When applying, it creates backups before modifying files:
 
 1. Quit Codex completely.
 2. Open PowerShell or Terminal.
-3. Run a dry run first.
+3. Use the wizard or run a dry run first.
+
+### Easiest Windows Option
+
+Double-click:
+
+```text
+Start-Repair-Windows.cmd
+```
+
+or run:
+
+```powershell
+.\scripts\Repair-CodexProjectPath.ps1 -Wizard
+```
+
+The wizard asks for the old folder and new folder, runs a dry-run scan, then asks you to type `YES` before applying changes.
+
+### Direct Commands
 
 Windows example:
 
@@ -107,6 +125,31 @@ The script updates path metadata in:
 
 It avoids rewriting normal chat text where practical. In JSONL files, it parses each event and only updates likely metadata fields, not arbitrary message content.
 
+## Dependencies
+
+The repair engine requires Python 3, but uses only the standard library. No `pip install` is needed.
+
+Used standard-library modules:
+
+- `sqlite3`
+- `json`
+- `pathlib`
+- `shutil`
+- `argparse`
+
+The PowerShell wrapper is provided for Windows users, but a complete PowerShell-only repair is not realistic without an external SQLite provider because Codex stores thread/project metadata in `state_5.sqlite`.
+
+## GitHub Pages
+
+This repo includes a landing page in `docs/index.html`.
+
+To enable it on GitHub:
+
+1. Open the repository settings.
+2. Go to **Pages**.
+3. Set source to **Deploy from a branch**.
+4. Choose branch `main` and folder `/docs`.
+
 ## Verify
 
 After applying, the script prints verification counts. These should be zero:
@@ -124,4 +167,3 @@ Some old path text may remain inside normal chat messages. That is expected and 
 - Quit Codex before applying. If Codex is running, it may rewrite stale state from memory.
 - This is for local Codex Desktop state. It does not repair cloud-synced OpenAI account data.
 - Treat backups as sensitive. Codex sessions can contain prompts, code, logs, and secrets.
-

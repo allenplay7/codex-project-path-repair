@@ -327,32 +327,14 @@ def repair_jsonl(codex_home: Path, pairs: list[tuple[str, str]], apply: bool, ba
     return result
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Repair local Codex project path metadata.")
-    parser.add_argument("--old", required=True, help="Old absolute project path.")
-    parser.add_argument("--new", required=True, help="New absolute project path.")
-    parser.add_argument("--codex-home", default=str(default_codex_home()), help="Path to .codex directory.")
-    parser.add_argument("--apply", action="store_true", help="Write changes. Default is dry-run.")
-    args = parser.parse_args()
-
-    old = args.old.rstrip("\\/")
-    new = args.new.rstrip("\\/")
-    codex_home = Path(args.codex_home).expanduser()
-
-    if old == new:
-        print("Old and new paths are identical; nothing to do.", file=sys.stderr)
-        return 2
-    if not codex_home.exists():
-        print(f"Codex home does not exist: {codex_home}", file=sys.stderr)
-        return 2
-
+def run_repair(old: str, new: str, codex_home: Path, apply: bool) -> dict[str, int]:
     pairs = replacement_pairs(old, new)
     backup_root = None
-    if args.apply:
+    if apply:
         backup_root = codex_home / "path-repair-backups" / timestamp()
         backup_root.mkdir(parents=True, exist_ok=True)
 
-    print("mode:", "APPLY" if args.apply else "DRY-RUN")
+    print("mode:", "APPLY" if apply else "DRY-RUN")
     print("codex_home:", codex_home)
     print("old:", old)
     print("new:", new)
@@ -361,20 +343,116 @@ def main() -> int:
 
     results: dict[str, int] = {}
     for fn in (repair_sqlite, repair_global_state, repair_config, repair_process_manager, repair_jsonl):
-        results.update(fn(codex_home, pairs, args.apply, backup_root))
+        results.update(fn(codex_home, pairs, apply, backup_root))
 
     print("\nResults")
     for key in sorted(results):
         print(f"{key}: {results[key]}")
 
-    if not args.apply:
+    if not apply:
         print("\nDry run only. Re-run with --apply to write changes.")
     else:
         print("\nDone. Reopen Codex after verifying the counts above.")
+    return results
 
+
+def prompt_path(label: str) -> str:
+    while True:
+        value = input(f"{label}: ").strip().strip('"')
+        if value:
+            return value.rstrip("\\/")
+        print("Please enter a path.")
+
+
+def run_wizard(codex_home: Path) -> int:
+    print("")
+    print("Codex Project Path Repair Wizard")
+    print("--------------------------------")
+    print("Use this after moving or renaming a Codex project folder.")
+    print("Quit Codex completely before applying changes.")
+    print("")
+    print("Example old path:")
+    print(r"  C:\Users\you\OneDrive\Desktop\Codex Projects\MyProject")
+    print("Example new path:")
+    print(r"  C:\Users\you\Desktop\Codex Projects\MyProject")
+    print("")
+
+    old = prompt_path("Old project path")
+    new = prompt_path("New project path")
+
+    if old == new:
+        print("Old and new paths are identical; nothing to repair.")
+        return 2
+
+    if not codex_home.exists():
+        print(f"Codex home does not exist: {codex_home}", file=sys.stderr)
+        return 2
+
+    print("")
+    print("Step 1: dry-run scan")
+    print("--------------------")
+    dry_results = run_repair(old, new, codex_home, apply=False)
+
+    changed = sum(
+        dry_results.get(key, 0)
+        for key in (
+            "sqlite_cwd_changes",
+            "sqlite_sandbox_policy_changes",
+            "global_changes",
+            "config_changes",
+            "process_manager_changes",
+            "jsonl_files_changed",
+        )
+    )
+    if changed == 0:
+        print("")
+        print("No matching metadata was found for that old path.")
+        print("Check that the old path is exact, including spaces and folder names.")
+        return 0
+
+    print("")
+    answer = input("Apply these changes now? Type YES to continue: ").strip()
+    if answer != "YES":
+        print("No changes written.")
+        return 0
+
+    print("")
+    print("Step 2: applying repair")
+    print("-----------------------")
+    run_repair(old, new, codex_home, apply=True)
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Repair local Codex project path metadata.")
+    parser.add_argument("--old", help="Old absolute project path.")
+    parser.add_argument("--new", help="New absolute project path.")
+    parser.add_argument("--codex-home", default=str(default_codex_home()), help="Path to .codex directory.")
+    parser.add_argument("--apply", action="store_true", help="Write changes. Default is dry-run.")
+    parser.add_argument("--wizard", action="store_true", help="Start an interactive repair wizard.")
+    args = parser.parse_args()
+
+    codex_home = Path(args.codex_home).expanduser()
+
+    if args.wizard:
+        return run_wizard(codex_home)
+
+    if not args.old or not args.new:
+        parser.error("--old and --new are required unless --wizard is used")
+
+    old = args.old.rstrip("\\/")
+    new = args.new.rstrip("\\/")
+
+    if old == new:
+        print("Old and new paths are identical; nothing to do.", file=sys.stderr)
+        return 2
+    if not codex_home.exists():
+        print(f"Codex home does not exist: {codex_home}", file=sys.stderr)
+        return 2
+
+    run_repair(old, new, codex_home, args.apply)
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
