@@ -1,42 +1,45 @@
 # Codex Project Path Repair
 
-Repair local Codex Desktop project chat history after moving or renaming project folders.
+Repair Codex Desktop project chats after a project folder is moved or renamed.
 
-This fixes the common case where Codex project chats disappear, detach from a project, or vanish from the sidebar after moving a project out of OneDrive, iCloud Drive, Dropbox, or another synced folder.
+This is for the situation where your old Codex conversations still exist, but the Codex app no longer shows them under the right project after moving the project out of OneDrive, iCloud Drive, Dropbox, Google Drive, or another folder.
 
-## What It Fixes
+## What It Does
 
-Codex stores project paths in more than one place:
+Codex stores project paths in several local files, not just one setting. This tool replaces an old absolute project path with the new absolute path across the local Codex state that controls project visibility.
+
+It checks and repairs:
 
 - `state_5.sqlite`, especially `threads.cwd`
-- `state_5.sqlite`, especially `threads.sandbox_policy`
 - `.codex-global-state.json`
 - `config.toml`
 - `sessions/**/*.jsonl`
 - `archived_sessions/**/*.jsonl`
 - `process_manager/chat_processes.json`
 
-Updating only the visible folder path is not enough. When Codex opens an old thread, it can rehydrate stale workspace metadata from SQLite or rollout JSONL files. If those still point at the old folder, the sidebar can lose the project association.
+It avoids rewriting normal chat text where practical. It focuses on metadata fields such as `cwd`, `sandbox_policy`, and writable roots.
 
 ## Safety
 
-The repair script is dry-run by default.
-
-It only writes changes when you pass `--apply`.
-
-When applying, it creates backups before modifying files:
+- Dry-run is the default.
+- Nothing is changed unless you pass `--apply` or confirm in the wizard.
+- Backups are created before files are modified.
 
 ```text
 <codex-home>/path-repair-backups/<timestamp>/
 ```
 
+Quit Codex before applying a repair. If Codex is still running, it may write old state back from memory.
+
 ## Quick Start
 
 1. Quit Codex completely.
-2. Open PowerShell or Terminal.
-3. Use the wizard or run a dry run first.
+2. Run the Windows wizard.
+3. Enter the old project folder and the new project folder.
+4. Review the dry-run result.
+5. Type `YES` only when you are ready to apply changes.
 
-### Easiest Windows Option
+### Windows Wizard
 
 Double-click:
 
@@ -50,11 +53,9 @@ or run:
 .\scripts\Repair-CodexProjectPath.ps1 -Wizard
 ```
 
-The wizard asks for the old folder and new folder, runs a dry-run scan, then asks you to type `YES` before applying changes.
+## Direct Commands
 
-### Direct Commands
-
-Windows example:
+Dry run:
 
 ```powershell
 python .\scripts\codex_path_repair.py `
@@ -62,7 +63,7 @@ python .\scripts\codex_path_repair.py `
   --new "C:\Users\YOURNAME\Desktop\Codex Projects\MyProject"
 ```
 
-Apply after reviewing the dry-run output:
+Apply:
 
 ```powershell
 python .\scripts\codex_path_repair.py `
@@ -80,7 +81,7 @@ PowerShell wrapper:
   -Apply
 ```
 
-macOS/Linux example:
+macOS or Linux:
 
 ```bash
 python3 scripts/codex_path_repair.py \
@@ -89,78 +90,40 @@ python3 scripts/codex_path_repair.py \
   --apply
 ```
 
-4. Reopen Codex.
-
-## OneDrive Migration Examples
-
-Desktop project:
+## Common Path Moves
 
 ```text
 Old: C:\Users\NAME\OneDrive\Desktop\Codex Projects\PROJECT
 New: C:\Users\NAME\Desktop\Codex Projects\PROJECT
-```
 
-Documents project:
-
-```text
 Old: C:\Users\NAME\OneDrive\Documents\PROJECT
 New: C:\Users\NAME\Documents\PROJECT
 ```
 
-## What The Script Changes
-
-The script updates path metadata in:
-
-- SQLite `threads.cwd`
-- SQLite `threads.sandbox_policy`
-- global saved workspace roots
-- global project order
-- global active workspace roots
-- thread workspace hints
-- project output directory hints
-- sidebar collapsed project group keys
-- trusted project entries in `config.toml`
-- JSONL session metadata fields such as `cwd`, `sandbox_policy`, and `writable_roots`
-- process manager `cwd` values
-
-It avoids rewriting normal chat text where practical. In JSONL files, it parses each event and only updates likely metadata fields, not arbitrary message content.
-
 ## Dependencies
 
-The repair engine requires Python 3, but uses only the standard library. No `pip install` is needed.
+Python 3 is required. No packages need to be installed.
 
-Used standard-library modules:
+The PowerShell wrapper is only a launcher. The repair engine is Python because Codex stores important project metadata in SQLite, and Python includes SQLite support in the standard library.
 
-- `sqlite3`
-- `json`
-- `pathlib`
-- `shutil`
-- `argparse`
+## Project Website
 
-The PowerShell wrapper is provided for Windows users, but a complete PowerShell-only repair is not realistic without an external SQLite provider because Codex stores thread/project metadata in `state_5.sqlite`.
+This repository includes a static landing page at `docs/index.html`.
 
-## GitHub Pages
+For GitHub Pages, use the simple branch publisher:
 
-This repo includes a landing page in `docs/index.html`.
+1. Open the repository on GitHub.
+2. Go to **Settings**.
+3. Go to **Pages**.
+4. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
+5. Select branch `main` and folder `/docs`.
+6. Save.
 
-The included workflow at `.github/workflows/pages.yml` deploys the `docs/` folder with GitHub Actions.
-
-The public page URL will usually be:
-
-```text
-https://YOUR_USERNAME.github.io/codex-project-path-repair/
-```
-
-If GitHub asks you to enable Pages manually:
-
-1. Open the repository settings.
-2. Go to **Pages**.
-3. Set source to **GitHub Actions**.
-4. Run the **Deploy GitHub Pages** workflow.
+No GitHub Actions workflow is needed for this static site.
 
 ## Verify
 
-After applying, the script prints verification counts. These should be zero:
+After applying, the script prints verification counts. These should be `0`:
 
 ```text
 remaining_sqlite_old_refs: 0
@@ -170,8 +133,7 @@ remaining_jsonl_metadata_old_refs: 0
 
 Some old path text may remain inside normal chat messages. That is expected and does not usually affect project visibility.
 
-## Important Notes
+## Notes
 
-- Quit Codex before applying. If Codex is running, it may rewrite stale state from memory.
 - This is for local Codex Desktop state. It does not repair cloud-synced OpenAI account data.
 - Treat backups as sensitive. Codex sessions can contain prompts, code, logs, and secrets.
