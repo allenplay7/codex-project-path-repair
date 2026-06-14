@@ -143,12 +143,20 @@ The PowerShell wrapper is provided for Windows users, but a complete PowerShell-
 
 This repo includes a landing page in `docs/index.html`.
 
-To enable it on GitHub:
+The included workflow at `.github/workflows/pages.yml` deploys the `docs/` folder with GitHub Actions.
+
+The public page URL will usually be:
+
+```text
+https://YOUR_USERNAME.github.io/codex-project-path-repair/
+```
+
+If GitHub asks you to enable Pages manually:
 
 1. Open the repository settings.
 2. Go to **Pages**.
-3. Set source to **Deploy from a branch**.
-4. Choose branch `main` and folder `/docs`.
+3. Set source to **GitHub Actions**.
+4. Run the **Deploy GitHub Pages** workflow.
 
 ## Verify
 
